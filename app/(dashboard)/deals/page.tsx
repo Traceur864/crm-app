@@ -5,6 +5,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { dealsApi, CreateDealDto, DealStage, Deal } from '@/lib/api/deals';
 import { contactsApi } from '@/lib/api/contacts';
 import { Plus, X } from 'lucide-react';
+import { toast } from 'sonner';
+import Link from 'next/link';
 
 const STAGES: { key: DealStage; label: string; color: string }[] = [
   { key: 'lead', label: 'Lead', color: 'border-gray-600' },
@@ -41,18 +43,28 @@ export default function DealsPage() {
       queryClient.invalidateQueries({ queryKey: ['deals'] });
       setShowForm(false);
       setForm(emptyForm);
+      toast.success('Deal creado correctamente');
     },
+    onError: () => toast.error('Error al crear el deal'),
   });
 
   const stageMutation = useMutation({
     mutationFn: ({ id, stage }: { id: number; stage: DealStage }) =>
       dealsApi.updateStage(id, stage),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['deals'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deals'] });
+      toast.success('Etapa del deal actualizada correctamente');
+    },
+    onError: () => toast.error('Error al actualizar la etapa del deal'),
   });
 
   const deleteMutation = useMutation({
     mutationFn: dealsApi.remove,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['deals'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deals'] });
+      toast.success('Deal eliminado correctamente');
+    },
+    onError: () => toast.error('Error al eliminar el deal'),
   });
 
   const handleDrop = (stage: DealStage) => {
@@ -204,7 +216,11 @@ export default function DealsPage() {
                     className="bg-gray-900 border border-gray-800 rounded-xl p-4 cursor-grab active:cursor-grabbing hover:border-gray-600 transition"
                   >
                     <div className="flex items-start justify-between gap-2 mb-2">
-                      <p className="text-white text-sm font-medium leading-snug">{deal.title}</p>
+                      <p className="text-white text-sm font-medium leading-snug">
+                        <Link href={`/deals/${deal.id}`} className="text-white text-sm font-medium leading-snug hover:text-teal-400 transition">
+                          {deal.title}
+                        </Link>
+                      </p>
                       <button
                         onClick={() => deleteMutation.mutate(deal.id)}
                         className="text-gray-600 hover:text-red-400 transition shrink-0"

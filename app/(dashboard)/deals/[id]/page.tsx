@@ -1,19 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { activitiesApi, CreateActivityDto } from '@/lib/api/activities';
 import { dealsApi } from '@/lib/api/deals';
-import { contactsApi } from '@/lib/api/contacts';
-import { Plus, X, Phone, Mail, Users, FileText, Calendar } from 'lucide-react';
+import { activitiesApi, CreateActivityDto } from '@/lib/api/activities';
+import { useState } from 'react';
 import { toast } from 'sonner';
-
-const emptyForm: CreateActivityDto = {
-  type: 'note',
-  description: '',
-  dealId: undefined,
-  contactId: undefined,
-};
+import { ArrowLeft, Phone, Mail, FileText, Calendar, X, Plus } from 'lucide-react';
 
 const typeIcons = {
   note: FileText,
@@ -36,33 +29,53 @@ const typeLabels = {
   meeting: 'Reunión',
 };
 
-export default function ActivitiesPage() {
+const stageLabels: Record<string, string> = {
+  lead: 'Lead',
+  contacted: 'Contactado',
+  proposal: 'Propuesta',
+  negotiation: 'Negociación',
+  won: 'Ganado',
+  lost: 'Perdido',
+};
+
+const stageColors: Record<string, string> = {
+  lead: 'text-gray-400 bg-gray-800',
+  contacted: 'text-blue-400 bg-blue-500/10',
+  proposal: 'text-yellow-400 bg-yellow-500/10',
+  negotiation: 'text-orange-400 bg-orange-500/10',
+  won: 'text-teal-400 bg-teal-500/10',
+  lost: 'text-red-400 bg-red-500/10',
+};
+
+const emptyForm: CreateActivityDto = {
+  type: 'note',
+  description: '',
+};
+
+export default function DealDetailPage() {
+  const { id } = useParams();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<CreateActivityDto>(emptyForm);
 
-  const { data: activities = [], isLoading } = useQuery({
-    queryKey: ['activities'],
-    queryFn: activitiesApi.getAll,
+  const { data: deal, isLoading: loadingDeal } = useQuery({
+    queryKey: ['deals', id],
+    queryFn: () => dealsApi.getOne(Number(id)),
   });
 
-  const { data: deals = [] } = useQuery({
-    queryKey: ['deals'],
-    queryFn: dealsApi.getAll,
-  });
-
-  const { data: contacts = [] } = useQuery({
-    queryKey: ['contacts'],
-    queryFn: contactsApi.getAll,
+  const { data: activities = [], isLoading: loadingActivities } = useQuery({
+    queryKey: ['activities', 'deal', id],
+    queryFn: () => activitiesApi.getByDeal(Number(id)),
   });
 
   const createMutation = useMutation({
     mutationFn: activitiesApi.create,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['activities'] });
+      queryClient.invalidateQueries({ queryKey: ['activities', 'deal', id] });
+      toast.success('Actividad creada');
       setShowForm(false);
       setForm(emptyForm);
-      toast.success('Actividad creada correctamente');
     },
     onError: () => toast.error('Error al crear la actividad'),
   });
@@ -70,32 +83,83 @@ export default function ActivitiesPage() {
   const deleteMutation = useMutation({
     mutationFn: activitiesApi.remove,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['activities'] });
-      toast.success('Actividad eliminada correctamente');
+      queryClient.invalidateQueries({ queryKey: ['activities', 'deal', id] });
+      toast.success('Actividad eliminada');
     },
     onError: () => toast.error('Error al eliminar la actividad'),
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createMutation.mutate(form);
+    createMutation.mutate({ ...form, dealId: Number(id) });
   };
 
-  return (
-    <div className="p-8">
+  if (loadingDeal) {
+    return <div className="p-8 text-gray-500">Cargando...</div>;
+  }
 
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Actividades</h1>
-          <p className="text-gray-400 mt-1 text-sm">{activities.length} actividades registradas</p>
+  if (!deal) {
+    return <div className="p-8 text-gray-500">Deal no encontrado</div>;
+  }
+
+  return (
+    <div className="p-8 max-w-4xl">
+
+      {/* Back button */}
+      <button
+        onClick={() => router.push('/deals')}
+        className="flex items-center gap-2 text-gray-400 hover:text-white text-sm mb-6 transition"
+      >
+        <ArrowLeft size={16} />
+        Volver a Deals
+      </button>
+
+      {/* Deal header */}
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-white mb-2">{deal.title}</h1>
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className={`text-xs px-2 py-1 rounded-full font-medium ${stageColors[deal.stage]}`}>
+                {stageLabels[deal.stage]}
+              </span>
+              {deal.contact && (
+                <span className="text-gray-400 text-sm">
+                  {deal.contact.firstName} {deal.contact.lastName}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="text-2xl font-bold text-teal-400">
+              ${Number(deal.value).toLocaleString()}
+            </p>
+            {deal.expectedCloseDate && (
+              <p className="text-gray-500 text-xs mt-1">
+                Cierre: {new Date(deal.expectedCloseDate).toLocaleDateString('es-MX')}
+              </p>
+            )}
+          </div>
         </div>
+
+        {deal.notes && (
+          <p className="text-gray-400 text-sm mt-4 pt-4 border-t border-gray-800">
+            {deal.notes}
+          </p>
+        )}
+      </div>
+
+      {/* Activities */}
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-white font-semibold">
+          Actividades <span className="text-gray-500 font-normal text-sm">({activities.length})</span>
+        </h2>
         <button
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 bg-teal-500 hover:bg-teal-400 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
+          className="flex items-center gap-2 bg-teal-500 hover:bg-teal-400 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition"
         >
-          <Plus size={16} />
-          Nueva actividad
+          <Plus size={14} />
+          Agregar
         </button>
       </div>
 
@@ -110,7 +174,6 @@ export default function ActivitiesPage() {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
-
               <div>
                 <label className="block text-sm text-gray-300 mb-1">Tipo *</label>
                 <select
@@ -124,7 +187,6 @@ export default function ActivitiesPage() {
                   <option value="meeting">Reunión</option>
                 </select>
               </div>
-
               <div>
                 <label className="block text-sm text-gray-300 mb-1">Descripción *</label>
                 <textarea
@@ -136,35 +198,6 @@ export default function ActivitiesPage() {
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-teal-500 text-sm resize-none"
                 />
               </div>
-
-              <div>
-                <label className="block text-sm text-gray-300 mb-1">Deal relacionado</label>
-                <select
-                  value={form.dealId ?? ''}
-                  onChange={(e) => setForm({ ...form, dealId: e.target.value ? Number(e.target.value) : undefined })}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-teal-500 text-sm"
-                >
-                  <option value="">Sin deal</option>
-                  {deals.map((d) => (
-                    <option key={d.id} value={d.id}>{d.title}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-300 mb-1">Contacto relacionado</label>
-                <select
-                  value={form.contactId ?? ''}
-                  onChange={(e) => setForm({ ...form, contactId: e.target.value ? Number(e.target.value) : undefined })}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-teal-500 text-sm"
-                >
-                  <option value="">Sin contacto</option>
-                  {contacts.map((c) => (
-                    <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>
-                  ))}
-                </select>
-              </div>
-
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowForm(false)} className="flex-1 bg-gray-800 hover:bg-gray-700 text-white py-2 rounded-lg text-sm transition">
                   Cancelar
@@ -180,12 +213,11 @@ export default function ActivitiesPage() {
 
       {/* Activities list */}
       <div className="space-y-3">
-        {isLoading ? (
-          <div className="text-center text-gray-500 py-8">Cargando...</div>
+        {loadingActivities ? (
+          <div className="text-gray-500 text-sm">Cargando actividades...</div>
         ) : activities.length === 0 ? (
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-8 text-center">
-            <Users size={32} className="text-gray-600 mx-auto mb-3" />
-            <p className="text-gray-500">No hay actividades aún</p>
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 text-center">
+            <p className="text-gray-500 text-sm">No hay actividades para este deal</p>
           </div>
         ) : (
           activities.map((activity) => {
@@ -193,45 +225,25 @@ export default function ActivitiesPage() {
             const colorClass = typeColors[activity.type];
             return (
               <div key={activity.id} className="bg-gray-900 border border-gray-800 rounded-xl p-5 flex gap-4">
-
-                {/* Icon */}
                 <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${colorClass}`}>
                   <Icon size={16} />
                 </div>
-
-                {/* Content */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-white text-sm font-medium">
-                      {typeLabels[activity.type]}
-                    </span>
-                    {activity.deal && (
-                      <span className="text-xs text-teal-400 bg-teal-500/10 px-2 py-0.5 rounded-full">
-                        {activity.deal.title}
-                      </span>
-                    )}
-                    {activity.contact && (
-                      <span className="text-xs text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-full">
-                        {activity.contact.firstName} {activity.contact.lastName}
-                      </span>
-                    )}
-                  </div>
+                  <p className="text-white text-sm font-medium mb-1">{typeLabels[activity.type]}</p>
                   <p className="text-gray-400 text-sm">{activity.description}</p>
                   <p className="text-gray-600 text-xs mt-2">
                     {new Date(activity.createdAt).toLocaleDateString('es-MX', {
-                      day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                      day: 'numeric', month: 'short', year: 'numeric',
+                      hour: '2-digit', minute: '2-digit',
                     })}
                   </p>
                 </div>
-
-                {/* Delete */}
                 <button
                   onClick={() => deleteMutation.mutate(activity.id)}
                   className="text-gray-600 hover:text-red-400 transition shrink-0"
                 >
                   <X size={16} />
                 </button>
-
               </div>
             );
           })

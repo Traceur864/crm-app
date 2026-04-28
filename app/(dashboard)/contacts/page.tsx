@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { contactsApi, CreateContactDto } from '@/lib/api/contacts';
 import { companiesApi } from '@/lib/api/companies';
 import { Users, Plus, Pencil, Trash2, X } from 'lucide-react';
+import { toast } from 'sonner';
 
 const emptyForm: CreateContactDto = {
   firstName: '', lastName: '', email: '', phone: '', position: '', companyId: undefined,
@@ -15,6 +16,7 @@ export default function ContactsPage() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<number | null>(null);
   const [form, setForm] = useState<CreateContactDto>(emptyForm);
+  const [search, setSearch] = useState('');
 
   const { data: contacts = [], isLoading } = useQuery({
     queryKey: ['contacts'],
@@ -31,7 +33,9 @@ export default function ContactsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contacts'] });
       resetForm();
+      toast.success('Contacto creado correctamente');
     },
+    onError: () => toast.error('Error al crear el contacto'),
   });
 
   const updateMutation = useMutation({
@@ -40,12 +44,18 @@ export default function ContactsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contacts'] });
       resetForm();
+      toast.success('Contacto actualizado correctamente');
     },
+    onError: () => toast.error('Error al actualizar el contacto'),
   });
 
   const deleteMutation = useMutation({
     mutationFn: contactsApi.remove,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['contacts'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      toast.success('Contacto eliminado correctamente');
+    },
+    onError: () => toast.error('Error al eliminar el contacto'),
   });
 
   const resetForm = () => {
@@ -76,6 +86,12 @@ export default function ContactsPage() {
     }
   };
 
+  const filtered = contacts.filter((c) =>
+  `${c.firstName} ${c.lastName} ${c.email} ${c.company?.name ?? ''}`
+    .toLowerCase()
+    .includes(search.toLowerCase()),
+  );
+
   return (
     <div className="p-8">
 
@@ -83,7 +99,9 @@ export default function ContactsPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-white">Contactos</h1>
-          <p className="text-gray-400 mt-1 text-sm">{contacts.length} contactos registrados</p>
+          <p className="text-gray-400 mt-1 text-sm">
+            {filtered.length} de {contacts.length} contactos
+          </p>
         </div>
         <button
           onClick={() => setShowForm(true)}
@@ -172,6 +190,16 @@ export default function ContactsPage() {
         </div>
       )}
 
+      {/* Search */}
+      <div className="mb-6">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar por nombre, email o empresa..."
+          className="w-full max-w-sm bg-gray-900 border border-gray-800 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-teal-500 text-sm"
+        />
+      </div>
+
       {/* Table */}
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
         {isLoading ? (
@@ -194,7 +222,7 @@ export default function ContactsPage() {
               </tr>
             </thead>
             <tbody>
-              {contacts.map((contact) => (
+              {filtered.map((contact) => (
                 <tr key={contact.id} className="border-b border-gray-800 last:border-0 hover:bg-gray-800/50 transition">
                   <td className="px-6 py-4 text-white text-sm font-medium">
                     {contact.firstName} {contact.lastName}

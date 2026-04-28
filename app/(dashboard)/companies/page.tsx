@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { companiesApi, CreateCompanyDto } from '@/lib/api/companies';
 import { Building2, Plus, Pencil, Trash2, X } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function CompaniesPage() {
   const queryClient = useQueryClient();
@@ -12,6 +13,7 @@ export default function CompaniesPage() {
   const [form, setForm] = useState<CreateCompanyDto>({
     name: '', industry: '', website: '', phone: '', address: '',
   });
+  const [search, setSearch] = useState('');
 
   const { data: companies = [], isLoading } = useQuery({
     queryKey: ['companies'],
@@ -22,8 +24,10 @@ export default function CompaniesPage() {
     mutationFn: companiesApi.create,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['companies'] });
+      toast.success('Empresa creada correctamente');
       resetForm();
     },
+    onError: () => toast.error('Error al crear la empresa'),
   });
 
   const updateMutation = useMutation({
@@ -31,14 +35,20 @@ export default function CompaniesPage() {
       companiesApi.update(id, dto),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['companies'] });
+      toast.success('Empresa actualizada correctamente');
       resetForm();
     },
+    onError: () => toast.error('Error al actualizar la empresa'),
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: companiesApi.remove,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['companies'] }),
-  });
+const deleteMutation = useMutation({
+  mutationFn: companiesApi.remove,
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ['companies'] });
+    toast.success('Empresa eliminada');
+  },
+  onError: () => toast.error('Error al eliminar la empresa'),
+});
 
   const resetForm = () => {
     setForm({ name: '', industry: '', website: '', phone: '', address: '' });
@@ -67,6 +77,12 @@ export default function CompaniesPage() {
     }
   };
 
+  const filtered = companies.filter((c) =>
+    `${c.name} ${c.industry ?? ''} ${c.address ?? ''}`
+      .toLowerCase()
+      .includes(search.toLowerCase()),
+  );
+
   return (
     <div className="p-8">
 
@@ -74,7 +90,9 @@ export default function CompaniesPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-white">Empresas</h1>
-          <p className="text-gray-400 mt-1 text-sm">{companies.length} empresas registradas</p>
+          <p className="text-gray-400 mt-1 text-sm">
+            {filtered.length} de {companies.length} empresas registradas
+          </p>
         </div>
         <button
           onClick={() => setShowForm(true)}
@@ -127,6 +145,16 @@ export default function CompaniesPage() {
         </div>
       )}
 
+      {/* Search */}
+      <div className="mb-6">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar por nombre, industria o dirección..."
+          className="w-full max-w-sm bg-gray-900 border border-gray-800 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-teal-500 text-sm"
+        />
+      </div>
+
       {/* Table */}
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
         {isLoading ? (
@@ -148,7 +176,7 @@ export default function CompaniesPage() {
               </tr>
             </thead>
             <tbody>
-              {companies.map((company) => (
+              {filtered.map((company) => (
                 <tr key={company.id} className="border-b border-gray-800 last:border-0 hover:bg-gray-800/50 transition">
                   <td className="px-6 py-4 text-white text-sm font-medium">{company.name}</td>
                   <td className="px-6 py-4 text-gray-400 text-sm">{company.industry ?? '—'}</td>
