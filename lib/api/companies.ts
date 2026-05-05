@@ -24,5 +24,6 @@ export const companiesApi = {
   getOne: (id: number) => api.get<Company>(`/companies/${id}`).then((r) => r.data),
   create: (dto: CreateCompanyDto) => api.post<Company>('/companies', dto).then((r) => r.data),
   update: (id: number, dto: Partial<CreateCompanyDto>) => api.put<Company>(`/companies/${id}`, dto).then((r) => r.data),
-  remove: (id: number) => api.delete(`/companies/${id}`).then((r) => r.data),
+  remove: (id: number) => api.patch(`/companies/${id}/desactive`).then((r) => r.data),
+  restore: (id: number) => api.patch(`/companies/${id}/restore`).then((r) => r.data)
 };

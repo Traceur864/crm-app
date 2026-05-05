@@ -31,5 +31,6 @@ export const activitiesApi = {
   getByDeal: (dealId: number) => api.get<Activity[]>(`/activities/deal/${dealId}`).then((r) => r.data),
   getByContact: (contactId: number) => api.get<Activity[]>(`/activities/contact/${contactId}`).then((r) => r.data),
   create: (dto: CreateActivityDto) => api.post<Activity>('/activities', dto).then((r) => r.data),
-  remove: (id: number) => api.delete(`/activities/${id}`).then((r) => r.data),
+  remove: (id: number) => api.patch(`/activities/${id}/desactive`).then((r) => r.data),
+  restore: (id: number) => api.patch(`/activities/${id}/restore`).then((r) => r.data),
 };

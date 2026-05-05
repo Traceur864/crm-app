@@ -30,5 +30,6 @@ export const contactsApi = {
   getOne: (id: number) => api.get<Contact>(`/contacts/${id}`).then((r) => r.data),
   create: (dto: CreateContactDto) => api.post<Contact>('/contacts', dto).then((r) => r.data),
   update: (id: number, dto: Partial<CreateContactDto>) => api.put<Contact>(`/contacts/${id}`, dto).then((r) => r.data),
-  remove: (id: number) => api.delete(`/contacts/${id}`).then((r) => r.data),
+  remove: (id: number) => api.patch(`/contacts/${id}/desactive`).then((r) => r.data),
+  restore: (id: number) => api.patch(`/contacts/${id}/restore`).then((r) => r.data),
 };

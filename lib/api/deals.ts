@@ -34,5 +34,6 @@ export const dealsApi = {
   create: (dto: CreateDealDto) => api.post<Deal>('/deals', dto).then((r) => r.data),
   update: (id: number, dto: Partial<CreateDealDto>) => api.put<Deal>(`/deals/${id}`, dto).then((r) => r.data),
   updateStage: (id: number, stage: DealStage) => api.patch<Deal>(`/deals/${id}/stage`, { stage }).then((r) => r.data),
-  remove: (id: number) => api.delete(`/deals/${id}`).then((r) => r.data),
+  remove: (id: number) => api.patch(`/deals/${id}/desactive`).then((r) => r.data),
+  restore: (id: number) => api.patch(`/deals/${id}/restore`).then((r) => r.data),
 };
